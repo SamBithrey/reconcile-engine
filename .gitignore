@@ -1,0 +1,39 @@
+# Go binaries and build artifacts
+/bin/
+/dist/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+coverage.txt
+coverage.html
+vendor/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Frontend / Node
+node_modules/
+web/.next/
+web/out/
+web/build/
+
+# Generated fixture outputs
+fixtures/
+tmp/
+out/
+seed-out/
+*.tmp
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo

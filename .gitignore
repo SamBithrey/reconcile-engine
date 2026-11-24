@@ -22,6 +22,7 @@ node_modules/
 web/.next/
 web/out/
 web/build/
+*.tsbuildinfo
 
 # Generated fixture outputs
 fixtures/

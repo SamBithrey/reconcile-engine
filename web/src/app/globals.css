@@ -1,0 +1,106 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body {
+    @apply bg-slate-50 text-slate-900 antialiased;
+  }
+
+  :where(a:any-link, button, input, select, textarea, [tabindex="0"]):focus-visible {
+    outline: 2px solid #0f172a;
+    outline-offset: 2px;
+  }
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Visually hidden utility (accessibility guide): keeps content in the accessibility tree
+   while allowing focusable elements like skip links to become visible on focus. */
+.visually-hidden:where(:not(:focus-within, :active)) {
+  position: absolute !important;
+  clip-path: inset(50%) !important;
+  overflow: hidden !important;
+  width: 1px !important;
+  height: 1px !important;
+  margin: -1px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  white-space: nowrap !important;
+}
+
+.skip-link:focus-visible {
+  position: fixed;
+  inset-block-start: 0.75rem;
+  inset-inline-start: 0.75rem;
+  z-index: 50;
+  border-radius: 0.5rem;
+  background-color: #0f172a;
+  color: #ffffff;
+  padding: 0.5rem 0.875rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  outline: 2px solid #34d399;
+  outline-offset: 2px;
+}
+
+/* Responsive data table wrapper (responsive-table guide) */
+.table-wrapper {
+  overflow: auto;
+  max-inline-size: 100%;
+  container-type: inline-size;
+}
+
+.table-wrapper > table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.table-wrapper > table > thead {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 1;
+}
+
+/* Post-interaction form validation (validate-input-after-interaction guide) */
+.hitl-field-control:is(:user-invalid, .user-invalid-fallback) {
+  border-color: #be123c;
+  background-color: #fff1f2;
+}
+
+.hitl-field-control:is(:user-valid, .user-valid-fallback) {
+  border-color: #047857;
+}
+
+.hitl-field-error {
+  display: none;
+}
+
+.hitl-field-control:is(:user-invalid, .user-invalid-fallback) + .hitl-field-error {
+  display: flex;
+}
+
+/* Auto-sizing textarea with stable inline width (form-fields-automatically-fit-contents guide) */
+.auto-size-textarea {
+  field-sizing: content;
+  width: 100%;
+  height: auto;
+  min-block-size: 3lh;
+  max-block-size: 10lh;
+}
+
+/* Current page link indicator (navbar guide: non-color-only indicator + forced-colors support) */
+.nav-link[aria-current="page"] {
+  background-color: rgb(30 41 59);
+  color: #ffffff;
+  border-bottom: 2px solid #34d399;
+}
+
+@media (forced-colors: active) {
+  .nav-link[aria-current="page"] {
+    border-bottom: 2px solid LinkText;
+  }
+}

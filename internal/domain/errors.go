@@ -13,4 +13,7 @@ var (
 	// ErrScannedPDFUnsupported indicates a PDF has no extractable text layer
 	// (e.g., scanned raster image or outlined glyph paths).
 	ErrScannedPDFUnsupported = errors.New("scanned PDF without embedded text layer is unsupported")
+
+	// ErrNotFound indicates a requested entity does not exist in the ledger.
+	ErrNotFound = errors.New("not found")
 )

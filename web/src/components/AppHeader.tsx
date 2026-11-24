@@ -5,11 +5,12 @@ import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { Activity, FileCheck2, RefreshCw, Server } from "lucide-react";
 
-import { fetchHealth, getApiBaseUrl } from "@/lib/api";
+import { fetchHealth, getApiBaseUrl, isDemoMode } from "@/lib/api";
 import type { HealthResponse } from "@/lib/types";
 
 export function AppHeader() {
   const pathname = usePathname();
+  const demoMode = isDemoMode();
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [healthError, setHealthError] = useState<string | null>(null);
   const [checking, setChecking] = useState<boolean>(false);
@@ -80,13 +81,22 @@ export function AppHeader() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5 text-xs">
-          <div
-            className="hidden md:flex items-center gap-1.5 rounded-md border border-slate-800 bg-slate-900 px-2.5 py-1 font-mono text-[11px] text-slate-300"
-            title="Configured backend API base URL"
-          >
-            <Server aria-hidden="true" className="h-3.5 w-3.5 text-slate-400" />
-            <span>{apiBase}</span>
-          </div>
+          {demoMode ? (
+            <div
+              className="flex items-center gap-1.5 rounded-md border border-indigo-400/40 bg-indigo-500/15 px-2.5 py-1 font-mono text-[11px] font-semibold text-indigo-200"
+              title="Opt-in Static Demo Mode (NEXT_PUBLIC_DEMO_MODE=true) — serving deterministic in-memory fixtures without cmd/api"
+            >
+              <span>STATIC DEMO MODE</span>
+            </div>
+          ) : (
+            <div
+              className="hidden md:flex items-center gap-1.5 rounded-md border border-slate-800 bg-slate-900 px-2.5 py-1 font-mono text-[11px] text-slate-300"
+              title="Configured backend API base URL"
+            >
+              <Server aria-hidden="true" className="h-3.5 w-3.5 text-slate-400" />
+              <span>{apiBase}</span>
+            </div>
+          )}
 
           <button
             type="button"
@@ -105,13 +115,15 @@ export function AppHeader() {
           >
             <Activity aria-hidden="true" className="h-3.5 w-3.5" />
             <span>
-              {isHealthy
-                ? "API Healthy"
-                : isDegraded
-                  ? "API Degraded"
-                  : healthError
-                    ? "API Offline"
-                    : "Checking..."}
+              {demoMode && isHealthy
+                ? "Demo Active"
+                : isHealthy
+                  ? "API Healthy"
+                  : isDegraded
+                    ? "API Degraded"
+                    : healthError
+                      ? "API Offline"
+                      : "Checking..."}
             </span>
             <RefreshCw
               aria-hidden="true"

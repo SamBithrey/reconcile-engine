@@ -1,4 +1,4 @@
-.PHONY: up down test test-integration migrate-up migrate-down seed demo logs
+.PHONY: up down vet test test-integration test-web migrate-up migrate-down seed demo logs
 
 COMPOSE ?= docker compose
 DATABASE_URL ?= postgres://reconcile:reconcile@localhost:5432/reconcile?sslmode=disable
@@ -21,6 +21,9 @@ migrate-up:
 migrate-down:
 	$(COMPOSE) run --rm migrate -path=/migrations -database="postgres://reconcile:reconcile@postgres:5432/reconcile?sslmode=disable" down -all
 
+vet:
+	go vet ./...
+
 test:
 	go test -race -count=1 ./...
 
@@ -34,12 +37,17 @@ test-integration:
 	MINIO_BUCKET=$(MINIO_BUCKET) \
 	go test -race -v -count=1 ./internal/repository/... ./internal/broker/... ./internal/storage/... ./cmd/api/... ./cmd/worker/...
 
+test-web:
+	cd web && npx tsc --noEmit && npm test && npm run build
+
 seed:
 	go run ./cmd/seed --database-url "$(DATABASE_URL)" --api-url "$(API_URL)" --wait
 
 demo:
-	@echo "==> Starting infrastructure, migrations, API, and worker..."
+	@echo "==> Starting PostgreSQL 16, RabbitMQ 3.13, MinIO, migrations (000001_init_schema.up.sql), API, and worker..."
 	$(COMPOSE) up -d --build
+	@echo "==> Ensuring SQL schema migrations are up to date..."
+	$(COMPOSE) run --rm migrate -path=/migrations -database="postgres://reconcile:reconcile@postgres:5432/reconcile?sslmode=disable" up
 	@echo "==> Waiting for API health at $(API_URL)/healthz..."
 	@for i in $$(seq 1 40); do \
 		if curl -fsS "$(API_URL)/healthz" >/dev/null 2>&1; then \
@@ -53,15 +61,16 @@ demo:
 		fi; \
 		sleep 2; \
 	done
-	@echo "==> Seeding suppliers, 15 POs, 14 GRNs, and submitting 20 mixed-format invoices..."
+	@echo "==> Seeding 5 suppliers, 15 POs, 14 GRNs, and submitting 20 mixed-format invoices (UBL_XML, PDF, CSV)..."
 	go run ./cmd/seed --database-url "$(DATABASE_URL)" --api-url "$(API_URL)" --wait
 	@echo "==> Reconciliation metrics summary:"
 	@curl -fsS "$(API_URL)/api/v1/metrics" && echo ""
 	@echo ""
 	@echo "Demo ready!"
-	@echo "  API:        $(API_URL)"
-	@echo "  RabbitMQ:   http://localhost:15672 (reconcile / reconcile)"
-	@echo "  MinIO UI:   http://localhost:9001  (minioadmin / minioadmin)"
+	@echo "  API:         $(API_URL) (health: $(API_URL)/healthz)"
+	@echo "  RabbitMQ UI: http://localhost:15672 (reconcile / reconcile)"
+	@echo "  MinIO UI:    http://localhost:9001  (minioadmin / minioadmin)"
+	@echo "  Next.js UI:  cd web && npm install && npm run dev  ->  http://localhost:3000"
 
 logs:
 	$(COMPOSE) logs -f api worker

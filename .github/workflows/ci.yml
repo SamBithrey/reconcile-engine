@@ -1,0 +1,170 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  go-unit:
+    name: Go Vet & Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Verify zero floating-point currency/tax types
+        run: |
+          if grep -rnE '\bfloat(32|64)\b' \
+            internal/domain \
+            internal/matcher \
+            internal/repository \
+            internal/broker \
+            internal/storage \
+            cmd/api \
+            cmd/worker \
+            internal/parser/csv.go \
+            internal/parser/parser.go \
+            internal/parser/pdf.go \
+            internal/parser/ubl.go; then
+            echo "ERROR: Floating-point types are forbidden in domain, matcher, parser, repository, API, and worker code."
+            exit 1
+          fi
+
+      - name: Run go vet
+        run: go vet ./...
+
+      - name: Run Go unit tests with race detector
+        run: go test -race -count=1 ./...
+
+  go-integration:
+    name: Go Integration Tests (Postgres 16, RabbitMQ 3.13, MinIO)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: reconcile
+          POSTGRES_PASSWORD: reconcile
+          POSTGRES_DB: reconcile
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U reconcile -d reconcile"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 15
+      rabbitmq:
+        image: rabbitmq:3.13-management-alpine
+        env:
+          RABBITMQ_DEFAULT_USER: reconcile
+          RABBITMQ_DEFAULT_PASS: reconcile
+        ports:
+          - 5672:5672
+          - 15672:15672
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 15
+    env:
+      INTEGRATION_TEST: "1"
+      DATABASE_URL: postgres://reconcile:reconcile@127.0.0.1:5432/reconcile?sslmode=disable
+      RABBITMQ_URL: amqp://reconcile:reconcile@127.0.0.1:5672/
+      MINIO_ENDPOINT: 127.0.0.1:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_BUCKET: raw-invoices
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Start MinIO service container
+        run: |
+          docker run -d --rm \
+            --name ci-minio \
+            -p 9000:9000 \
+            -e MINIO_ROOT_USER="$MINIO_ACCESS_KEY" \
+            -e MINIO_ROOT_PASSWORD="$MINIO_SECRET_KEY" \
+            pgsty/minio:latest server /data
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:9000/minio/health/live >/dev/null 2>&1; then
+              echo "MinIO is healthy"
+              break
+            fi
+            if [ "$i" -eq 30 ]; then
+              echo "Timed out waiting for MinIO"
+              docker logs ci-minio
+              exit 1
+            fi
+            sleep 1
+          done
+
+      - name: Apply PostgreSQL schema migrations
+        run: |
+          if command -v psql >/dev/null 2>&1; then
+            psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/000001_init_schema.up.sql
+          else
+            docker run --rm --network host \
+              -v "$PWD/migrations:/migrations:ro" \
+              postgres:16-alpine \
+              psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f /migrations/000001_init_schema.up.sql
+          fi
+
+      - name: Run Go integration test suite
+        run: make test-integration
+
+      - name: Stop MinIO service container
+        if: always()
+        run: docker rm -f ci-minio >/dev/null 2>&1 || true
+
+  web:
+    name: Web Typecheck, Unit Tests & Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run TypeScript typecheck
+        run: npx tsc --noEmit
+
+      - name: Run frontend unit tests
+        run: npm test
+
+      - name: Build Next.js production bundle (Live API mode)
+        run: npm run build
+
+      - name: Build Next.js production bundle (Static Demo mode)
+        env:
+          NEXT_PUBLIC_DEMO_MODE: "true"
+        run: npm run build

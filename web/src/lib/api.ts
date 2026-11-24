@@ -1,3 +1,16 @@
+import {
+  DemoStoreError,
+  demoFetchHealth,
+  demoFetchInvoiceDetail,
+  demoFetchInvoiceFileText,
+  demoFetchInvoices,
+  demoFetchMetrics,
+  demoGetInvoiceFileBlob,
+  demoResolveInvoice,
+  demoUploadInvoice,
+  isDemoMode,
+  resetDemoStore,
+} from "./demo-data.ts";
 import type {
   HealthResponse,
   Invoice,
@@ -9,7 +22,9 @@ import type {
   SourceFormat,
   UploadInvoiceResponse,
   UploadInvoiceResult,
-} from "./types";
+} from "./types.ts";
+
+export { isDemoMode, resetDemoStore };
 
 const DEFAULT_API_BASE_URL = "http://localhost:8080";
 const DEFAULT_REQUEST_TIMEOUT_MS = 15_000;
@@ -31,6 +46,17 @@ export class ApiError extends Error {
     this.status = status;
     this.isConflict = status === 409;
     this.isNotFound = status === 404;
+  }
+}
+
+function wrapDemoCall<T>(fn: () => T): T {
+  try {
+    return fn();
+  } catch (err) {
+    if (err instanceof DemoStoreError) {
+      throw new ApiError(err.status, err.message, { cause: err });
+    }
+    throw err;
   }
 }
 
@@ -106,6 +132,9 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export async function fetchHealth(): Promise<HealthResponse> {
+  if (isDemoMode()) {
+    return wrapDemoCall(() => demoFetchHealth());
+  }
   const url = `${getApiBaseUrl()}/healthz`;
   const res = await fetchWithDeadline(url, { cache: "no-store" }, 5_000);
   const text = await res.text();
@@ -121,6 +150,9 @@ export async function fetchHealth(): Promise<HealthResponse> {
 }
 
 export async function fetchMetrics(): Promise<MetricsSummary> {
+  if (isDemoMode()) {
+    return wrapDemoCall(() => demoFetchMetrics());
+  }
   const data = await requestJson<MetricsSummary>("/api/v1/metrics");
   return {
     ...data,
@@ -141,6 +173,9 @@ export interface ListInvoicesParams {
 export async function fetchInvoices(
   params: ListInvoicesParams = {},
 ): Promise<InvoiceListResponse> {
+  if (isDemoMode()) {
+    return wrapDemoCall(() => demoFetchInvoices(params));
+  }
   const search = new URLSearchParams();
   if (params.status) {
     search.set("status", params.status);
@@ -174,6 +209,9 @@ export async function fetchInvoices(
 }
 
 export async function fetchInvoiceDetail(id: string): Promise<InvoiceDetail> {
+  if (isDemoMode()) {
+    return wrapDemoCall(() => demoFetchInvoiceDetail(id));
+  }
   const data = await requestJson<InvoiceDetail>(
     `/api/v1/invoices/${encodeURIComponent(id)}`,
   );
@@ -201,9 +239,20 @@ export function getInvoiceFileUrl(id: string): string {
   return `${getApiBaseUrl()}/api/v1/invoices/${encodeURIComponent(id)}/file`;
 }
 
+export function getDemoInvoiceFileBlob(id: string): {
+  bytes: Uint8Array;
+  contentType: string;
+  filename: string;
+} {
+  return wrapDemoCall(() => demoGetInvoiceFileBlob(id));
+}
+
 export async function fetchInvoiceFileText(
   id: string,
 ): Promise<{ text: string; contentType: string; sizeBytes: number }> {
+  if (isDemoMode()) {
+    return wrapDemoCall(() => demoFetchInvoiceFileText(id));
+  }
   const res = await fetchWithDeadline(getInvoiceFileUrl(id), {
     cache: "no-store",
   });
@@ -221,6 +270,16 @@ export async function fetchInvoiceFileText(
 }
 
 export async function uploadInvoice(file: File): Promise<UploadInvoiceResult> {
+  if (isDemoMode()) {
+    try {
+      return await demoUploadInvoice(file);
+    } catch (err) {
+      if (err instanceof DemoStoreError) {
+        throw new ApiError(err.status, err.message, { cause: err });
+      }
+      throw err;
+    }
+  }
   const formData = new FormData();
   formData.append("file", file, file.name);
 
@@ -248,6 +307,9 @@ export async function resolveInvoice(
   id: string,
   payload: ResolveInvoiceRequest,
 ): Promise<Invoice> {
+  if (isDemoMode()) {
+    return wrapDemoCall(() => demoResolveInvoice(id, payload));
+  }
   return requestJson<Invoice>(
     `/api/v1/invoices/${encodeURIComponent(id)}/resolve`,
     {

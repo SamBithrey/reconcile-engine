@@ -16,7 +16,12 @@ import { AccountingExportMenu } from "@/components/AccountingExportMenu";
 import { InvoiceUploadPanel } from "@/components/InvoiceUploadPanel";
 import { MetricsOverview } from "@/components/MetricsOverview";
 import { SourceFormatBadge, StatusBadge } from "@/components/StatusBadge";
-import { fetchInvoices, fetchMetrics } from "@/lib/api";
+import {
+  fetchInvoices,
+  fetchMetrics,
+  isDemoMode,
+  resetDemoStore,
+} from "@/lib/api";
 import { formatPenceCurrency } from "@/lib/money";
 import {
   ALL_INVOICE_STATUSES,
@@ -145,11 +150,42 @@ export function DashboardClient() {
     statusFilter || formatFilter || supplierFilter.trim() || searchInput.trim(),
   );
 
+  const demoMode = isDemoMode();
   const rangeStart = total === 0 ? 0 : offset + 1;
   const rangeEnd = Math.min(offset + invoices.length, total);
 
+  const handleResetDemo = () => {
+    resetDemoStore();
+    clearFilters();
+    void refreshAll();
+  };
+
   return (
     <div className="space-y-6">
+      {demoMode ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-indigo-200 bg-indigo-50/80 px-4 py-3 text-xs text-indigo-950">
+          <div>
+            <span className="font-semibold">Static Demo Mode Active</span>{" "}
+            <span className="text-indigo-800">
+              — Exploring 20 deterministic fixtures (UBL XML, PDF, CSV) covering
+              all <span className="font-mono">INT-01..04</span> and{" "}
+              <span className="font-mono">3WAY-01..09</span> rules with
+              in-memory HITL approval/rejection and audit logging. Unset{" "}
+              <span className="font-mono">NEXT_PUBLIC_DEMO_MODE</span> to
+              connect to a live <span className="font-mono">cmd/api</span>{" "}
+              backend.
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={handleResetDemo}
+            className="shrink-0 rounded-lg border border-indigo-300 bg-white px-3 py-1.5 text-xs font-semibold text-indigo-800 hover:bg-indigo-100 transition-colors"
+          >
+            Reset Demo Data
+          </button>
+        </div>
+      ) : null}
+
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold tracking-tight text-slate-900">

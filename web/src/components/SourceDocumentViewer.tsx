@@ -14,7 +14,12 @@ import {
 } from "lucide-react";
 
 import { SourceFormatBadge } from "@/components/StatusBadge";
-import { fetchInvoiceFileText, getInvoiceFileUrl } from "@/lib/api";
+import {
+  fetchInvoiceFileText,
+  getDemoInvoiceFileBlob,
+  getInvoiceFileUrl,
+  isDemoMode,
+} from "@/lib/api";
 import { parseCsvForPreview } from "@/lib/csv-preview";
 import { getFormatMeta } from "@/lib/discrepancies";
 import type { Invoice } from "@/lib/types";
@@ -99,9 +104,33 @@ function renderXmlLineTokens(line: string) {
 }
 
 export function SourceDocumentViewer({ invoice }: { invoice: Invoice }) {
-  const fileUrl = getInvoiceFileUrl(invoice.id);
+  const demoMode = isDemoMode();
+  const [demoBlobUrl, setDemoBlobUrl] = useState<string | null>(null);
+  const fileUrl = demoMode ? (demoBlobUrl ?? "#") : getInvoiceFileUrl(invoice.id);
   const formatMeta = getFormatMeta(invoice.source_format);
   const downloadFilename = `${invoice.invoice_number || invoice.id}.${formatMeta.extension}`;
+
+  useEffect(() => {
+    if (!demoMode) {
+      setDemoBlobUrl(null);
+      return;
+    }
+    try {
+      const { bytes, contentType } = getDemoInvoiceFileBlob(invoice.id);
+      const copy = new Uint8Array(bytes.byteLength);
+      copy.set(bytes);
+      const url = URL.createObjectURL(
+        new Blob([copy.buffer], { type: contentType }),
+      );
+      setDemoBlobUrl(url);
+      return () => {
+        URL.revokeObjectURL(url);
+      };
+    } catch {
+      setDemoBlobUrl(null);
+      return undefined;
+    }
+  }, [demoMode, invoice.id]);
 
   const [textContent, setTextContent] = useState<string | null>(null);
   const [sizeBytes, setSizeBytes] = useState<number | null>(null);
@@ -255,7 +284,11 @@ export function SourceDocumentViewer({ invoice }: { invoice: Invoice }) {
             className="h-[720px] w-full border-0 bg-white"
           />
           <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-3 py-2 text-[11px] text-slate-500">
-            <span>Served directly from MinIO via GET /api/v1/invoices/{invoice.id.slice(0, 8)}…/file</span>
+            <span>
+              {demoMode
+                ? "Deterministic PDF preview generated locally (Static Demo Mode)"
+                : `Served directly from MinIO via GET /api/v1/invoices/${invoice.id.slice(0, 8)}…/file`}
+            </span>
             <a
               href={fileUrl}
               target="_blank"

@@ -1,6 +1,10 @@
 # Reconcile Engine — Event-Driven 3-Way Invoice Reconciliation Engine
 
-[![CI](https://github.com/sambithrey/reconcile-engine/actions/workflows/ci.yml/badge.svg)](./.github/workflows/ci.yml)
+[![CI](https://github.com/SamBithrey/reconcile-engine/actions/workflows/ci.yml/badge.svg)](./.github/workflows/ci.yml)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Vercel%20(Static%20Demo%20Mode)-000000?logo=vercel)](https://reconcile-engine-ebon.vercel.app)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
+
+> **Try the interactive HITL Dashboard live (no setup required):** **https://reconcile-engine-ebon.vercel.app** — running in opt-in Static Demo Mode with 20 deterministic fixtures (`UBL_XML`, `PDF`, `CSV`), all 13 discrepancy rules (`INT-01`–`INT-04`, `3WAY-01`–`3WAY-09`), inline source previews, and interactive operator approval/rejection.
 
 A **£0-cost, 100% deterministic, offline** event-driven backend and full-stack Accounts Payable (AP) reconciliation system built with **Go 1.23+**, **PostgreSQL 16**, **RabbitMQ 3.13**, **MinIO (S3)**, and **Next.js 15**.
 
@@ -164,6 +168,8 @@ Open `http://localhost:3000` to:
 - Export deterministic RFC-4180 CSV or JSON accounting bundles preserving exact integer pence.
 
 ### Optional Static Demo Mode (Vercel / Backend-Free Preview)
+A live Static Demo Mode deployment is hosted at **https://reconcile-engine-ebon.vercel.app**.
+
 When deploying `web/` to Vercel (or previewing the UI without running Docker), opt into Static Demo Mode by setting `NEXT_PUBLIC_DEMO_MODE=true` (see [`web/.env.example`](./web/.env.example)):
 
 ```bash
